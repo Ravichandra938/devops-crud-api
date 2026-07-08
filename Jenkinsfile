@@ -1,0 +1,92 @@
+pipeline {
+    agent any
+    
+    // Credentials will be securely injected by Jenkins later
+    environment {
+        DB_HOST = credentials('DB_HOST')
+        DB_USER = credentials('DB_USER')
+        DB_PASSWORD = credentials('DB_PASSWORD')
+        DB_NAME = 'app1_db'
+        DB_PORT = '5432'
+    }
+    
+    stages {
+        stage('Build & Test') {
+            steps {
+                script {
+                    // Grants execution rights to the Maven wrapper and builds the binary
+                    sh 'chmod +x ./mvnw'
+                    sh './mvnw clean package -DskipTests'
+                }
+            }
+        }
+        
+        stage('Deploy') {
+            steps {
+                script {
+                    // Backup the existing working build for potential rollback
+                    sh '''
+                    mkdir -p /var/apps/app1_backup
+                    mkdir -p /var/apps/app1_current
+                    if [ -f /var/apps/app1_current/app.jar ]; then
+                        cp /var/apps/app1_current/app.jar /var/apps/app1_backup/app-rollback.jar
+                    fi
+                    cp target/crud-api-0.0.1-SNAPSHOT.jar /var/apps/app1_current/app.jar
+                    '''
+                    
+                    // Restart the application silently using PM2 process manager
+                    sh '''
+                    pm2 describe app1-api > /dev/null && pm2 stop app1-api || true
+                    pm2 start "java -jar /var/apps/app1_current/app.jar" --name "app1-api"
+                    '''
+                }
+            }
+        }
+        
+        stage('Health Check') {
+            steps {
+                script {
+                    echo "Waiting 15 seconds for application boot..."
+                    sleep 15
+                    
+                    // Logic Challenge 4: Rollback Trigger Logic (3 retries, 5 sec timeout, HTTP 200)
+                    def success = false
+                    for(int i=0; i<3; i++) {
+                        try {
+                            def response = sh(script: "curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8081/api/health", returnStdout: true).trim()
+                            if(response == "200") {
+                                success = true
+                                echo "Health check passed. System stable."
+                                break
+                            }
+                        } catch(Exception e) {
+                            echo "Health probe attempt ${i+1} failed..."
+                        }
+                        sleep 5
+                    }
+                    
+                    if(!success) {
+                        error "Unhealthy state detected. Triggering automated rollback sequence."
+                    }
+                }
+            }
+        }
+    }
+    
+    post {
+        failure {
+            script {
+                echo "CRITICAL: Executing Automated Rollback to last known-good version."
+                sh '''
+                if [ -f /var/apps/app1_backup/app-rollback.jar ]; then
+                    cp /var/apps/app1_backup/app-rollback.jar /var/apps/app1_current/app.jar
+                    pm2 restart app1-api || pm2 start "java -jar /var/apps/app1_current/app.jar" --name "app1-api"
+                    echo "Rollback successful."
+                else
+                    echo "No backup found. Rollback aborted."
+                fi
+                '''
+            }
+        }
+    }
+}
