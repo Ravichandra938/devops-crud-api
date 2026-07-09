@@ -1,7 +1,7 @@
 package com.assessment.crud_api.controller;
 
-import com.assessment.crudapi.model.DeploymentTask;
-import com.assessment.crudapi.repository.TaskRepository;
+import com.assessment.crud_api.model.DeploymentTask;
+import com.assessment.crud_api.repository.TaskRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
