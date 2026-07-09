@@ -1,4 +1,4 @@
-package com.assessment.crudapi.model;
+package com.assessment.crud_api.model;
 
 import jakarta.persistence.*;
 
