@@ -1,4 +1,4 @@
-package com.assessment.crudapi.controller;
+package com.assessment.crud_api.controller;
 
 import com.assessment.crudapi.model.DeploymentTask;
 import com.assessment.crudapi.repository.TaskRepository;
