@@ -53,7 +53,7 @@ pipeline {
                     def success = false
                     for(int i=0; i<3; i++) {
                         try {
-                            def response = sh(script: "curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8081/api/health", returnStdout: true).trim()
+                            def response = sh(script: "curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8081/actuator/health", returnStdout: true).trim()
                             if(response == "200") {
                                 success = true
                                 echo "Health check passed. System stable."
